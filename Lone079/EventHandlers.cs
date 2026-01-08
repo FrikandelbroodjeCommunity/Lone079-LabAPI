@@ -1,14 +1,16 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using Exiled.API.Features;
-using Exiled.API.Features.Roles;
-using Exiled.Events.EventArgs.Player;
-using Exiled.Events.EventArgs.Scp079;
+using LabApi.Events.Arguments.PlayerEvents;
+using LabApi.Events.Arguments.Scp079Events;
+using LabApi.Events.Arguments.WarheadEvents;
+using LabApi.Features.Console;
+using LabApi.Features.Wrappers;
 using MEC;
 using PlayerRoles;
+using PlayerRoles.PlayableScps.Scp079;
 using Random = System.Random;
 
-namespace Lone079Rework;
+namespace Lone079;
 
 public static class EventHandlers
 {
@@ -16,37 +18,40 @@ public static class EventHandlers
     private static bool _isTransformationAllowed;
     private static CoroutineHandle _checkCoroutine;
 
+    private static bool Debug => Lone079.Instance.Config.Debug;
+
     private static IEnumerator<float> CheckForScp079Transformation(float delay = 0.5f)
     {
         yield return Timing.WaitForSeconds(delay);
 
         if (!_isTransformationAllowed)
         {
-            Log.Debug("[SCP-079] Transformation conditions not met.");
+            Logger.Debug("[SCP-079] Transformation conditions not met.", Debug);
             yield break;
         }
 
-        var scpTeam = Player.Get(Team.SCPs)
+        var scpTeam = Player.List
+            .Where(x => x.Team == Team.SCPs)
             .Where(p => Lone079.Instance.Config.CountZombies || p.Role != RoleTypeId.Scp0492)
             .Where(p => p.Role != RoleTypeId.Scp079)
             .ToList();
 
         if (scpTeam.Count > 0)
         {
-            Log.Debug("[SCP-079] Other SCPs still alive.");
+            Logger.Debug("[SCP-079] Other SCPs still alive.", Debug);
             yield break;
         }
 
-        var scp079 = Player.Get(Team.SCPs).FirstOrDefault(p => p.IsScp079());
+        var scp079 = Player.List.FirstOrDefault(p => p.IsScp079());
         if (scp079 == null)
         {
-            Log.Debug("[SCP-079] SCP-079 not found.");
+            Logger.Debug("[SCP-079] SCP-079 not found.", Debug);
             yield break;
         }
 
         if (!TryGetRandomScpRole(out var newRole))
         {
-            Log.Debug("[SCP-079] No available SCP roles configured.");
+            Logger.Debug("[SCP-079] No available SCP roles configured.", Debug);
             yield break;
         }
 
@@ -57,15 +62,25 @@ public static class EventHandlers
     {
         if (!player.IsScp079())
         {
-            Log.Debug($"[SCP-079] Player {player.Nickname} is not SCP-079.");
+            Logger.Debug($"[SCP-079] Player {player.Nickname} is not SCP-079.", Debug);
             return;
         }
 
-        var scp079Role = player.Role.As<Scp079Role>();
-        Log.Debug($"[SCP-079] Transforming {player.Nickname} to {newRole}");
+        var scp079Role = (Scp079Role)player.RoleBase;
+        var accessTier = 5;
+        if (scp079Role.SubroutineModule.TryGetSubroutine(out Scp079TierManager manager))
+        {
+            accessTier = manager.AccessTierLevel;
+        }
+        else
+        {
+            Logger.Warn("Failed to check SCP-079 level, spawning in with full health");
+        }
 
-        player.Role.Set(newRole);
-        ApplyHealthModifications(player, scp079Role.Level);
+        Logger.Debug($"[SCP-079] Transforming {player.Nickname} to {newRole}", Debug);
+        player.SetRole(newRole);
+
+        ApplyHealthModifications(player, accessTier);
         player.ShowTransformationBroadcast();
     }
 
@@ -79,11 +94,11 @@ public static class EventHandlers
         player.Health = player.MaxHealth * healthMultiplier;
     }
 
-    public static void OnPlayerDeath(DyingEventArgs ev)
+    public static void OnPlayerDeath(PlayerDyingEventArgs ev)
     {
-        if (ev.Player.Role.Team != Team.SCPs) return;
+        if (ev.Player.Team != Team.SCPs) return;
 
-        Log.Debug($"[SCP-079] SCP death detected: {ev.Player.Nickname}");
+        Logger.Debug($"[SCP-079] SCP death detected: {ev.Player.Nickname}", Debug);
 
         if (_checkCoroutine.IsRunning)
             Timing.KillCoroutines(_checkCoroutine);
@@ -93,21 +108,22 @@ public static class EventHandlers
         );
     }
 
-    public static void OnWarheadDetonated()
+    public static void OnWarheadDetonated(WarheadDetonatedEventArgs _)
     {
-        Log.Debug("[SCP-079] Warhead detonated - disabling transformations");
+        Logger.Debug("[SCP-079] Warhead detonated - disabling transformations");
         _isTransformationAllowed = false;
     }
 
     public static void OnRoundStarted()
     {
-        Log.Debug("[SCP-079] New round started - resetting settings");
+        Logger.Debug("[SCP-079] New round started - resetting settings");
         _isTransformationAllowed = true;
     }
 
-    public static void HandleRecontainment(RecontainingEventArgs ev)
+    public static void HandleRecontainment(Scp079RecontainingEventArgs ev)
     {
-        var activeScps = Player.Get(Team.SCPs)
+        var activeScps = Player.List
+            .Where(x => x.Team == Team.SCPs)
             .Where(p => p != ev.Player)
             .Where(p => Lone079.Instance.Config.CountZombies || p.Role != RoleTypeId.Scp0492)
             .ToList();
@@ -120,7 +136,7 @@ public static class EventHandlers
 
         if (!TryGetRandomScpRole(out var newRole))
         {
-            Log.Debug("[SCP-079] No valid SCP roles available");
+            Logger.Debug("[SCP-079] No valid SCP roles available");
             return;
         }
 
@@ -150,9 +166,9 @@ public static class PlayerExtensions
 
     public static void ShowTransformationBroadcast(this Player player)
     {
-        player.Broadcast(
-            Lone079.Instance.Config.BroadcastDuration,
-            Lone079.Instance.Config.BroadcastMessage
+        player.SendHint(
+            Lone079.Instance.Config.BroadcastMessage,
+            Lone079.Instance.Config.BroadcastDuration
         );
     }
 }

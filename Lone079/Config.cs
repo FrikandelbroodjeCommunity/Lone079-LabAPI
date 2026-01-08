@@ -1,15 +1,11 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel;
-using Exiled.API.Interfaces;
 using PlayerRoles;
 
-namespace Lone079Rework;
+namespace Lone079;
 
-public class Config : IConfig
+public class Config
 {
-    [Description("Whether the plugin is enabled or not.")]
-    public bool IsEnabled { get; set; } = true;
-
     [Description("Whether debug messages should be shown in the server console.")]
     public bool Debug { get; set; } = false;
 
