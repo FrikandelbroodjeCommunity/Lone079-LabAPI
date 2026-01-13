@@ -27,6 +27,13 @@ public class Config
     [Description("The duration (in seconds) of the broadcast message shown to SCP-079 when it is respawned.")]
     public ushort BroadcastDuration { get; set; } = 10;
 
+    [Description("The message shown to the rest of the server when SCP-079 is respawned as another SCP.")]
+    public string PublicBroadMessage { get; set; } = "SCP-079 has been respawned as a random SCP because all other SCPs have died.";
+
+    [Description(
+        "The duration (in seconds) of the broadcast message shown to the other players when SCP-079 is respawned")]
+    public ushort PublicBroadcastDuration { get; set; } = 10;
+
     [Description("The delay (in seconds) before SCP-079 is respawned after being the last SCP alive.")]
     public float RespawnDelay { get; set; } = 1f;
 
@@ -34,12 +41,12 @@ public class Config
     public bool TransformOnRecontain { get; set; } = false;
 
     [Description("List of SCP roles that SCP-079 can transform into.")]
-    public List<RoleTypeId> Scp079AvailableRoles { get; set; } =
-    [
+    public List<RoleTypeId> Scp079AvailableRoles { get; set; } = new()
+    {
         RoleTypeId.Scp049,
         RoleTypeId.Scp096,
         RoleTypeId.Scp106,
         RoleTypeId.Scp173,
         RoleTypeId.Scp939
-    ];
+    };
 }

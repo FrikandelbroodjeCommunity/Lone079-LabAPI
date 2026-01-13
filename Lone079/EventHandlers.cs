@@ -170,5 +170,13 @@ public static class PlayerExtensions
             Lone079.Instance.Config.BroadcastMessage,
             Lone079.Instance.Config.BroadcastDuration
         );
+
+        foreach (var ply in Player.List.Where(x => x != player))
+        {
+            ply.SendBroadcast(
+                Lone079.Instance.Config.PublicBroadMessage,
+                Lone079.Instance.Config.PublicBroadcastDuration
+            );
+        }
     }
 }
